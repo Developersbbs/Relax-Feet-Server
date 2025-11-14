@@ -24,7 +24,7 @@ require('./config/firebaseAdmin');
 
 // CORS config
 const corsOptions = {
-  origin: "https://meek-puppy-73c400.netlify.app",
+  origin: "http://localhost:5173",
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
