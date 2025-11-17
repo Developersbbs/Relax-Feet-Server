@@ -24,7 +24,7 @@ require('./config/firebaseAdmin');
 
 // CORS config
 const corsOptions = {
-  origin: "http://localhost:5173",
+  origin:  "http://app.relaxfeet.in/",
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
