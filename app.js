@@ -123,7 +123,7 @@ const PORT = process.env.PORT || 5000;
 module.exports = app;
 
 if (require.main === module) {
-  app.listen('0.0.0.0',PORT, () => {
+  app.listen(PORT,'0.0.0.0', () => {
     console.log(`✅ Server is running @ http://0.0.0.0:${PORT}`);
     console.log(`📁 Upload endpoint: http://0.0.0.0:${PORT}/api/upload/image`);
     scheduleNotificationCleanup();
