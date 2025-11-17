@@ -48,7 +48,55 @@ app.use('/api/bills', billRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/services', serviceRoutes);
 
-// Add a test route to verify upload endpoint
+// Root route
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Welcome to RelaxFeet Server API',
+    version: '1.0.0',
+    endpoints: {
+     
+      test: '/api/test'
+    }
+  });
+});
+
+// Login info route
+app.get('/login', (req, res) => {
+  res.json({
+    message: 'Login endpoint',
+    method: 'POST',
+    url: '/api/auth/login',
+    body: {
+      email: 'string (required)',
+      password: 'string (required)'
+    },
+    example: {
+      email: 'user@example.com',
+      password: 'password123'
+    }
+  });
+});
+
+// Register info route
+app.get('/register', (req, res) => {
+  res.json({
+    message: 'Registration endpoint',
+    method: 'POST',
+    url: '/api/auth/register',
+    body: {
+      username: 'string (required)',
+      email: 'string (required)',
+      password: 'string (required)',
+      role: 'string (optional, defaults to superadmin)'
+    },
+    example: {
+      username: 'johndoe',
+      email: 'john@example.com',
+      password: 'securepassword123',
+      role: 'admin'
+    }
+  });
+});
 app.get('/api/test', (req, res) => {
   res.json({ message: 'Server is working' });
 });
@@ -63,8 +111,13 @@ app.use((error, req, res, next) => {
 });
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`✅ Server is running @ http://localhost:${PORT}`);
-  console.log(`📁 Upload endpoint: http://localhost:${PORT}/api/upload/image`);
-  scheduleNotificationCleanup();
-});
+// Export the app for testing
+module.exports = app;
+
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`✅ Server is running @ http://localhost:${PORT}`);
+    console.log(`📁 Upload endpoint: http://localhost:${PORT}/api/upload/image`);
+    scheduleNotificationCleanup();
+  });
+}
