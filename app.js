@@ -42,8 +42,12 @@ const corsOptions = {
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
+  optionsSuccessStatus: 200, // Some browsers (IE11) choke on 204
 };
 app.use(cors(corsOptions));
+
+// Handle preflight OPTIONS requests for all routes explicitly
+app.options('*', cors(corsOptions));
 
 
 // Middleware
