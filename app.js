@@ -24,9 +24,21 @@ connectDB();
 require('./config/firebaseAdmin');
 
 // CORS config
-const allowedOrigins = process.env.ALLOWED_ORIGINS
+const envOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
-  : ["https://app.relaxfeet.in", "http://localhost:5173", "http://localhost:5174", "http://localhost:5000", "http://127.0.0.1:5173", "https://venerable-speculoos-4a9a31.netlify.app"];
+  : [];
+
+const defaultOrigins = [
+  "https://app.relaxfeet.in",
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:5001",
+  "http://127.0.0.1:5173",
+  "https://venerable-speculoos-4a9a31.netlify.app",
+
+];
+
+const allowedOrigins = [...new Set([...envOrigins, ...defaultOrigins])];
 
 const corsOptions = {
   origin: function (origin, callback) {
