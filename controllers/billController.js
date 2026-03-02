@@ -522,6 +522,123 @@ exports.deleteBill = async (req, res) => {
   }
 };
 
+exports.getBranchBillingSummary = async (req, res) => {
+  try {
+    const today = new Date();
+    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    // Aggregate billing data per branch
+    const branchSummary = await Bill.aggregate([
+      {
+        $group: {
+          _id: '$branchId',
+          totalBills: { $sum: 1 },
+          totalRevenue: { $sum: '$totalAmount' },
+          paidRevenue: {
+            $sum: {
+              $cond: [{ $eq: ['$paymentStatus', 'paid'] }, '$paidAmount', 0]
+            }
+          },
+          pendingAmount: {
+            $sum: {
+              $cond: [{ $ne: ['$paymentStatus', 'paid'] }, '$dueAmount', 0]
+            }
+          },
+          todayBills: {
+            $sum: {
+              $cond: [{ $gte: ['$billDate', startOfDay] }, 1, 0]
+            }
+          },
+          monthlyBills: {
+            $sum: {
+              $cond: [{ $gte: ['$billDate', startOfMonth] }, 1, 0]
+            }
+          },
+          monthlyRevenue: {
+            $sum: {
+              $cond: [{ $gte: ['$billDate', startOfMonth] }, '$totalAmount', 0]
+            }
+          },
+          pendingBills: {
+            $sum: {
+              $cond: [{ $eq: ['$paymentStatus', 'pending'] }, 1, 0]
+            }
+          },
+          paidBills: {
+            $sum: {
+              $cond: [{ $eq: ['$paymentStatus', 'paid'] }, 1, 0]
+            }
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: 'branches',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'branch'
+        }
+      },
+      {
+        $unwind: { path: '$branch', preserveNullAndEmptyArrays: true }
+      },
+      {
+        $project: {
+          branchId: '$_id',
+          branchName: { $ifNull: ['$branch.name', 'Unknown Branch'] },
+          branchCode: { $ifNull: ['$branch.code', 'N/A'] },
+          isActive: { $ifNull: ['$branch.isActive', false] },
+          totalBills: 1,
+          totalRevenue: 1,
+          paidRevenue: 1,
+          pendingAmount: 1,
+          todayBills: 1,
+          monthlyBills: 1,
+          monthlyRevenue: 1,
+          pendingBills: 1,
+          paidBills: 1
+        }
+      },
+      { $sort: { totalRevenue: -1 } }
+    ]);
+
+    // Get system-wide totals
+    const [systemTotals] = await Bill.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: '$totalAmount' },
+          totalBills: { $sum: 1 },
+          todayBills: {
+            $sum: { $cond: [{ $gte: ['$billDate', startOfDay] }, 1, 0] }
+          },
+          monthlyRevenue: {
+            $sum: { $cond: [{ $gte: ['$billDate', startOfMonth] }, '$totalAmount', 0] }
+          },
+          pendingAmount: {
+            $sum: { $cond: [{ $ne: ['$paymentStatus', 'paid'] }, '$dueAmount', 0] }
+          }
+        }
+      }
+    ]);
+
+    res.status(200).json({
+      branchSummary,
+      systemTotals: systemTotals || {
+        totalRevenue: 0,
+        totalBills: 0,
+        todayBills: 0,
+        monthlyRevenue: 0,
+        pendingAmount: 0
+      }
+    });
+  } catch (err) {
+    console.error('Error in getBranchBillingSummary:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
 exports.getBillsStats = async (req, res) => {
   try {
     const today = new Date();

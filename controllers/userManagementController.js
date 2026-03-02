@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs');
 exports.getAllUsers = async (req, res) => {
   try {
     const users = await User.find({
-      role: { $in: ['stockmanager', 'billcounter'] }
+      role: { $in: ['branchadmin', 'branchmanager', 'stockmanager', 'billcounter'] }
     }).select('-password').populate('branchId', 'name code');
 
     res.status(200).json(users);
@@ -39,9 +39,10 @@ exports.createUser = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    // Validate role
-    if (!['stockmanager', 'billcounter'].includes(role)) {
-      return res.status(400).json({ message: "Invalid role. Must be stockmanager or billcounter" });
+    // Validate role — superadmin cannot be created via this endpoint
+    const allowedRoles = ['branchadmin', 'branchmanager', 'stockmanager', 'billcounter'];
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({ message: "Invalid role. Must be one of: branchadmin, branchmanager, stockmanager, or billcounter" });
     }
 
     // Check for existing user
