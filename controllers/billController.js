@@ -95,7 +95,7 @@ const notifyProducts = async (productIds) => {
 exports.getAllBills = async (req, res) => {
   try {
     const { page = 1, limit = 10, startDate, endDate, paymentStatus } = req.query;
-    
+
     const filter = {};
     if (startDate && endDate) {
       filter.billDate = {
@@ -106,15 +106,23 @@ exports.getAllBills = async (req, res) => {
     if (paymentStatus) {
       filter.paymentStatus = paymentStatus;
     }
-    
+
+    // Branch filtering logic
+    if (req.user.role !== 'superadmin') {
+      filter.branchId = req.user.branchId;
+    } else if (req.query.branchId) {
+      filter.branchId = req.query.branchId;
+    }
+
     const bills = await Bill.find(filter)
       .populate('customerId', 'name email phone')
+      .populate('branchId', 'name code')
       .limit(limit * 1)
       .skip((page - 1) * limit)
       .sort({ createdAt: -1 });
-    
+
     const total = await Bill.countDocuments(filter);
-    
+
     res.status(200).json({
       bills,
       totalPages: Math.ceil(total / limit),
@@ -129,9 +137,16 @@ exports.getAllBills = async (req, res) => {
 
 exports.getBillById = async (req, res) => {
   try {
-    const bill = await Bill.findById(req.params.id).populate('customerId');
+    const bill = await Bill.findById(req.params.id)
+      .populate('customerId')
+      .populate('branchId', 'name code');
     if (!bill) {
       return res.status(404).json({ message: 'Bill not found' });
+    }
+
+    // Authorization check
+    if (req.user.role !== 'superadmin' && String(bill.branchId._id) !== String(req.user.branchId)) {
+      return res.status(403).json({ message: 'Forbidden: Cannot access bill from another branch' });
     }
     res.status(200).json(bill);
   } catch (err) {
@@ -144,6 +159,15 @@ exports.createBill = async (req, res) => {
   try {
     const payload = { ...req.body };
     payload.createdBy = req.user._id;
+
+    // Determine branchId: UI provided for superadmin, or from req.user
+    if (req.user.role !== 'superadmin' && !req.user.branchId) {
+      throw httpError(403, 'User is not assigned to a branch');
+    }
+    const branchId = req.user.role === 'superadmin' && payload.branchId ? payload.branchId : req.user.branchId;
+    if (!branchId) {
+      throw httpError(400, 'Branch ID is required to create a bill');
+    }
 
     if (!payload.customerId) {
       throw httpError(400, 'Customer ID is required.');
@@ -242,6 +266,7 @@ exports.createBill = async (req, res) => {
     });
 
     const bill = new Bill({
+      branchId,
       customerId: customer._id,
       customerName: customer.name,
       customerEmail: customer.email,
@@ -269,7 +294,10 @@ exports.createBill = async (req, res) => {
     }
 
     await notifyProducts(new Set([...updatedProducts.keys()]));
-    await bill.populate('customerId', 'name email phone');
+    await bill.populate([
+      { path: 'customerId', select: 'name email phone' },
+      { path: 'branchId', select: 'name code' }
+    ]);
 
     res.status(201).json({
       message: 'Bill created successfully',
@@ -280,18 +308,18 @@ exports.createBill = async (req, res) => {
 
     // Differentiate between validation errors and server errors
     if (err.name === 'ValidationError') {
-        // Extract specific error messages from Mongoose ValidationError
-        const messages = Object.values(err.errors).map(e => e.message);
-        return res.status(400).json({ message: 'Validation Error', errors: messages }); // Use 'errors' array
+      // Extract specific error messages from Mongoose ValidationError
+      const messages = Object.values(err.errors).map(e => e.message);
+      return res.status(400).json({ message: 'Validation Error', errors: messages }); // Use 'errors' array
     }
     // Mongoose CastError (e.g., invalid ObjectId format)
     if (err.name === 'CastError') {
-         return res.status(400).json({ message: 'Invalid data format', error: err.message });
+      return res.status(400).json({ message: 'Invalid data format', error: err.message });
     }
     // Handle other potential Mongoose errors (e.g., duplicate key)
     if (err.code === 11000) { // Duplicate key error
-         const duplicateField = Object.keys(err.keyValue)[0];
-         return res.status(400).json({ message: `Duplicate entry`, error: `A bill with this ${duplicateField} already exists.` });
+      const duplicateField = Object.keys(err.keyValue)[0];
+      return res.status(400).json({ message: `Duplicate entry`, error: `A bill with this ${duplicateField} already exists.` });
     }
 
     res.status(500).json({ message: 'Server error during bill creation', error: err.message });
@@ -482,11 +510,11 @@ exports.updateBill = async (req, res) => {
 exports.deleteBill = async (req, res) => {
   try {
     const bill = await Bill.findByIdAndDelete(req.params.id);
-    
+
     if (!bill) {
       return res.status(404).json({ message: 'Bill not found' });
     }
-    
+
     res.status(200).json({ message: 'Bill deleted successfully' });
   } catch (err) {
     console.error("Error in deleteBill:", err); // Log for debugging
@@ -499,7 +527,14 @@ exports.getBillsStats = async (req, res) => {
     const today = new Date();
     const startOfDay = new Date(today.setHours(0, 0, 0, 0));
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    
+
+    const filter = {};
+    if (req.user.role !== 'superadmin') {
+      filter.branchId = new mongoose.Types.ObjectId(req.user.branchId);
+    } else if (req.query.branchId) {
+      filter.branchId = new mongoose.Types.ObjectId(req.query.branchId);
+    }
+
     const [
       totalBills,
       todayBills,
@@ -507,12 +542,12 @@ exports.getBillsStats = async (req, res) => {
       pendingPayments,
       totalRevenue
     ] = await Promise.all([
-      Bill.countDocuments(),
-      Bill.countDocuments({ billDate: { $gte: startOfDay } }),
-      Bill.countDocuments({ billDate: { $gte: startOfMonth } }),
-      Bill.countDocuments({ paymentStatus: 'pending' }),
+      Bill.countDocuments(filter),
+      Bill.countDocuments({ ...filter, billDate: { $gte: startOfDay } }),
+      Bill.countDocuments({ ...filter, billDate: { $gte: startOfMonth } }),
+      Bill.countDocuments({ ...filter, paymentStatus: 'pending' }),
       Bill.aggregate([
-        { $match: { paymentStatus: 'paid' } },
+        { $match: { ...filter, paymentStatus: 'paid' } },
         { $group: { _id: null, total: { $sum: '$totalAmount' } } }
       ])
     ]);
@@ -536,7 +571,7 @@ exports.generateInvoice = async (req, res) => {
     if (!bill) {
       return res.status(404).json({ message: 'Bill not found' });
     }
-    
+
     // Simple invoice generation (you can use libraries like pdfkit for PDF generation)
     const invoice = {
       billNumber: bill.billNumber,
@@ -549,7 +584,7 @@ exports.generateInvoice = async (req, res) => {
       totalAmount: bill.totalAmount,
       paymentStatus: bill.paymentStatus
     };
-    
+
     res.status(200).json(invoice);
   } catch (err) {
     console.error("Error in generateInvoice:", err); // Log for debugging

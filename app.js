@@ -12,6 +12,7 @@ const billRoutes = require('./routes/billRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const serviceRoutes = require('./routes/serviceRoutes');
+const branchRoutes = require('./routes/branchRoutes');
 const { scheduleNotificationCleanup } = require('./utils/notificationCleanup');
 const cors = require("cors");
 const cookieParser = require('cookie-parser');
@@ -20,24 +21,30 @@ const app = express();
 
 // Connect to database
 connectDB();
-require('./config/firebaseAdmin'); 
+require('./config/firebaseAdmin');
 
 // CORS config
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
+  : ["https://app.relaxfeet.in", "http://localhost:5173", "http://localhost:5174", "http://localhost:5000", "http://127.0.0.1:5173"];
+
 const corsOptions = {
-  origin:  "https://app.relaxfeet.in",
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+      callback(null, true);
+    } else {
+      console.log('Blocked Origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
 };
 app.use(cors(corsOptions));
 
-app.use((req,res,next) => {
-  res.header("Access-Control-Allow-Origin", "https://app.relaxfeet.in");
-  res.header("Access-Control-Allow-Credentials", true);
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  next();
-})
 
 // Middleware
 app.use(express.json({ limit: '10mb' })); // Increase limit for file uploads
@@ -55,14 +62,15 @@ app.use('/api/customers', customerRoutes);
 app.use('/api/bills', billRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/services', serviceRoutes);
+app.use('/api/branches', branchRoutes);
 
 // Root route
 app.get('/', (req, res) => {
-  res.json({ 
+  res.json({
     message: 'Welcome to RelaxFeet Server API',
     version: '1.0.0',
     endpoints: {
-     
+
       test: '/api/test'
     }
   });
@@ -112,9 +120,9 @@ app.get('/api/test', (req, res) => {
 // Error handling middleware
 app.use((error, req, res, next) => {
   console.error('Server Error:', error);
-  res.status(500).json({ 
-    message: 'Something went wrong!', 
-    error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error' 
+  res.status(500).json({
+    message: 'Something went wrong!',
+    error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
   });
 });
 const PORT = process.env.PORT || 5000;
@@ -123,7 +131,7 @@ const PORT = process.env.PORT || 5000;
 module.exports = app;
 
 if (require.main === module) {
-  app.listen(PORT,'0.0.0.0', () => {
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Server is running @ http://0.0.0.0:${PORT}`);
     console.log(`📁 Upload endpoint: http://0.0.0.0:${PORT}/api/upload/image`);
     scheduleNotificationCleanup();

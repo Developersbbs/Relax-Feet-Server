@@ -18,7 +18,7 @@ const itemSchema = new mongoose.Schema({
   },
   quantity: {
     type: Number,
-    required: function() {
+    required: function () {
       // Quantity only required for products, not services
       return this.productId != null;
     },
@@ -41,7 +41,7 @@ const itemSchema = new mongoose.Schema({
 });
 
 // Add validation to ensure either productId or serviceId is present, but not both
-itemSchema.pre('validate', function(next) {
+itemSchema.pre('validate', function (next) {
   if (!this.productId && !this.serviceId) {
     return next(new Error('Either productId or serviceId must be provided'));
   }
@@ -58,10 +58,15 @@ itemSchema.pre('validate', function(next) {
 });
 
 const billSchema = new mongoose.Schema({
+  branchId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Branch',
+    required: true
+  },
   billNumber: {
     type: String,
     // required: true, // Moved to post-validation setup
-    unique: true
+    // unique: true // Removed global unique constraint, uniqueness is now per branch
   },
   customerId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -154,35 +159,44 @@ const billSchema = new mongoose.Schema({
 });
 
 // --- IMPROVED Generate bill number hook ---
-billSchema.pre('validate', async function(next) {
+billSchema.pre('validate', async function (next) {
   // Only generate billNumber if it's a new document and billNumber is not already set
   if (this.isNew && !this.billNumber) {
     try {
-      // Find the highest existing bill number and increment
-      // Using `sort` and `limit` is generally more reliable than `countDocuments`
-      // especially if documents can be deleted.
-      const lastBill = await this.constructor // Use this.constructor instead of mongoose.model('Bill')
-        .findOne({}, { billNumber: 1 })
-        .sort({ createdAt: -1 }) // Sort by creation date descending
+      if (!this.branchId) {
+        return next(new Error('branchId is required to generate a bill number'));
+      }
+
+      // Fetch the branch code
+      const Branch = mongoose.model('Branch');
+      const branch = await Branch.findById(this.branchId);
+      if (!branch) {
+        return next(new Error('Invalid branchId provided for bill generation'));
+      }
+      const branchCode = branch.code;
+
+      // Find the highest existing bill number for THIS branch
+      const lastBill = await this.constructor
+        .findOne({ branchId: this.branchId }, { billNumber: 1 })
+        .sort({ createdAt: -1 })
         .limit(1)
         .exec();
 
       let nextNumber = 1;
       if (lastBill && lastBill.billNumber) {
-        // Extract the number part from the last bill number (e.g., "000012" from "BILL-000012")
-        const lastNumberString = lastBill.billNumber.split('-')[1];
+        // Expected format: BRANCHCODE-BILL-000001
+        // Split by '-' and get the last part
+        const parts = lastBill.billNumber.split('-');
+        const lastNumberString = parts[parts.length - 1];
         const lastNumber = parseInt(lastNumberString, 10);
         if (!isNaN(lastNumber)) {
           nextNumber = lastNumber + 1;
         }
       }
 
-      this.billNumber = `BILL-${String(nextNumber).padStart(6, '0')}`;
-      // console.log(`Generated billNumber for new bill: ${this.billNumber}`); // Optional: for debugging
+      this.billNumber = `${branchCode}-BILL-${String(nextNumber).padStart(6, '0')}`;
     } catch (err) {
-      // If there's an error generating the bill number, pass it to the next middleware
-      // This will prevent saving the document and report the error
-      console.error("Error generating bill number:", err); // Log the specific error
+      console.error("Error generating bill number:", err);
       return next(err);
     }
   }
