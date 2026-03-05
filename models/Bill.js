@@ -2,15 +2,10 @@
 const mongoose = require('mongoose');
 
 const itemSchema = new mongoose.Schema({
-  productId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Product',
-    required: false // Made optional to support services
-  },
   serviceId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Service',
-    required: false // Made optional to support products
+    required: true
   },
   name: {
     type: String,
@@ -18,10 +13,7 @@ const itemSchema = new mongoose.Schema({
   },
   quantity: {
     type: Number,
-    required: function () {
-      // Quantity only required for products, not services
-      return this.productId != null;
-    },
+    default: 1,
     min: 1
   },
   price: {
@@ -35,24 +27,17 @@ const itemSchema = new mongoose.Schema({
   },
   itemType: {
     type: String,
-    enum: ['product', 'service'],
+    enum: ['service'],
+    default: 'service',
     required: true
   }
 });
 
-// Add validation to ensure either productId or serviceId is present, but not both
+// Since we only support services now, we simplify the pre-validate hook
 itemSchema.pre('validate', function (next) {
-  if (!this.productId && !this.serviceId) {
-    return next(new Error('Either productId or serviceId must be provided'));
-  }
-  if (this.productId && this.serviceId) {
-    return next(new Error('Cannot specify both productId and serviceId'));
-  }
-  // Set itemType based on which ID is provided
-  if (this.productId) {
-    this.itemType = 'product';
-  } else if (this.serviceId) {
-    this.itemType = 'service';
+  this.itemType = 'service';
+  if (this.serviceId) {
+    this.quantity = 1; // Enforce quantity 1 for services
   }
   next();
 });
