@@ -26,6 +26,28 @@ const branchSchema = new mongoose.Schema(
             type: Boolean,
             default: true,
         },
+        gstNumber: {
+            type: String,
+            trim: true,
+            default: '',
+        },
+        email: {
+            type: String,
+            trim: true,
+            default: '',
+        },
+        website: {
+            type: String,
+            trim: true,
+            default: '',
+        },
+        bankDetails: {
+            bankName: { type: String, default: '' },
+            accountNumber: { type: String, default: '' },
+            branchBankName: { type: String, default: '' },
+            ifscCode: { type: String, default: '' },
+            upiId: { type: String, default: '' },
+        },
     },
     { timestamps: true }
 );

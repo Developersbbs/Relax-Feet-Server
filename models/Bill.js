@@ -64,11 +64,11 @@ const billSchema = new mongoose.Schema({
   },
   customerEmail: {
     type: String,
-    required: true
+    default: ''
   },
   customerPhone: {
     type: String,
-    required: true
+    default: ''
   },
   items: [itemSchema],
   subtotal: {
