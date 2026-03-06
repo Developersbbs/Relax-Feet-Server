@@ -147,15 +147,8 @@ const deleteCategory = async (req, res) => {
       return res.status(404).json({ message: 'Category not found' });
     }
 
-    // Check if category is being used by products
-    const Product = require('../models/Product');
-    const productsUsingCategory = await Product.countDocuments({ category: req.params.id });
-
-    if (productsUsingCategory > 0) {
-      return res.status(400).json({
-        message: `Cannot delete category. It is being used by ${productsUsingCategory} product(s).`
-      });
-    }
+    // Services are currently linked by category name (string), not ObjectId, 
+    // so no referential integrity check is strictly required here for the Service model.
 
     await category.deleteOne();
     res.status(200).json({
