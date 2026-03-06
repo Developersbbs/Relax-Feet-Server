@@ -138,6 +138,16 @@ const billSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
+  },
+  couponCode: {
+    type: String,
+    uppercase: true,
+    trim: true
+  },
+  couponDiscount: {
+    type: Number,
+    default: 0,
+    min: 0
   }
 }, {
   timestamps: true
