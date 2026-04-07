@@ -3,8 +3,10 @@ const dotenv = require('dotenv');
 dotenv.config();
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
+const productRoutes = require('./routes/productRoutes');
 const uploadRoutes = require('./routes/uploadRoutes'); // Make sure this path is correct
 const userManagementRoutes = require('./routes/userManagementroutes');
+const supplierRoutes = require('./routes/supplierRoutes');
 const customerRoutes = require('./routes/customerRoutes');
 const billRoutes = require('./routes/billRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
@@ -95,8 +97,10 @@ app.use(cookieParser());
 // Routes - ORDER MATTERS!
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes); // This should come before other routes
+app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/users', userManagementRoutes);
+app.use('/api/suppliers', supplierRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/bills', billRoutes);
 app.use('/api/notifications', notificationRoutes);

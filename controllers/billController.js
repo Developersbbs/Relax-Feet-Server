@@ -3,8 +3,8 @@ const mongoose = require('mongoose');
 const Bill = require('../models/Bill');
 const Customer = require('../models/Customer');
 const Service = require('../models/Service');
-const Product = null; // Removing Product dependency
-// const { handleStockNotifications } = require('../utils/stockNotifications');
+const Product = require('../models/Product');
+const { handleStockNotifications } = require('../utils/stockNotifications');
 
 const VALID_PAYMENT_METHODS = ['cash', 'card', 'upi', 'bank_transfer', 'credit'];
 const VALID_PAYMENT_STATUSES = ['pending', 'paid', 'partial'];
@@ -77,6 +77,20 @@ const httpError = (status, message) => {
   return error;
 };
 
+const notifyProducts = async (productIds) => {
+  if (!productIds || productIds.size === 0) {
+    return;
+  }
+
+  await Promise.all(
+    [...productIds].map(async (productId) => {
+      const product = await Product.findById(productId);
+      if (product) {
+        await handleStockNotifications(product, product.quantity);
+      }
+    })
+  );
+};
 
 exports.getAllBills = async (req, res) => {
   try {
@@ -133,20 +147,12 @@ exports.createBill = async (req, res) => {
 
 <<<<<<< HEAD
     // Determine branchId: UI provided for superadmin, or from req.user
-    // Determine branchId: UI provided for superadmin, or from req.user
-    let branchId = req.user.role === 'superadmin' && payload.branchId ? payload.branchId : req.user.branchId;
-
-    if (!branchId && req.user.role === 'superadmin') {
-      // Fallback for superadmin: use the first available branch if none provided
-      const Branch = mongoose.model('Branch');
-      const firstBranch = await Branch.findOne({ isActive: true });
-      if (firstBranch) {
-        branchId = firstBranch._id;
-      }
+    if (req.user.role !== 'superadmin' && !req.user.branchId) {
+      throw httpError(403, 'User is not assigned to a branch');
     }
-
+    const branchId = req.user.role === 'superadmin' && payload.branchId ? payload.branchId : req.user.branchId;
     if (!branchId) {
-      throw httpError(400, 'Branch ID is required to create a bill. Please assign a branch to this user or select one.');
+      throw httpError(400, 'Branch ID is required to create a bill');
     }
 
 =======
@@ -165,11 +171,25 @@ exports.createBill = async (req, res) => {
     }
 
     const items = [];
+    const updatedProducts = new Map();
 
     for (let index = 0; index < payload.items.length; index += 1) {
       const item = payload.items[index];
-      if (!item?.serviceId) {
-        throw httpError(400, `Item ${index + 1}: Service ID is required.`);
+      if (!item?.productId && !item?.serviceId) {
+        throw httpError(400, `Item ${index + 1}: Either Product ID or Service ID is required.`);
+      }
+
+      if (item?.productId && item?.serviceId) {
+        throw httpError(400, `Item ${index + 1}: Cannot specify both Product ID and Service ID.`);
+      }
+
+      let quantity = 1; // Default quantity for services
+      if (item.productId) {
+        // For products, quantity is required
+        quantity = Number(item.quantity) || 0;
+        if (quantity <= 0) {
+          throw httpError(400, `Item ${index + 1}: Quantity must be greater than 0.`);
+        }
       }
 
       const price = roundToTwo(Number(item.price) || 0);
@@ -177,21 +197,50 @@ exports.createBill = async (req, res) => {
         throw httpError(400, `Item ${index + 1}: Price cannot be negative.`);
       }
 
-      const total = roundToTwo(price); // Services always have quantity 1
+      const total = roundToTwo(price * quantity);
 
-      const service = await Service.findById(item.serviceId);
-      if (!service) {
-        throw httpError(400, `Item ${index + 1}: Invalid service selected.`);
+      let itemData;
+      if (item.productId) {
+        // Handle product
+        const product = await Product.findById(item.productId);
+        if (!product) {
+          throw httpError(400, `Item ${index + 1}: Invalid product selected.`);
+        }
+
+        if (product.quantity < quantity) {
+          throw httpError(400, `Item ${index + 1}: Only ${product.quantity} units available for '${product.name}'.`);
+        }
+
+        product.quantity -= quantity;
+        await product.save({ validateModifiedOnly: true });
+        updatedProducts.set(String(product._id), product);
+
+        itemData = {
+          productId: product._id,
+          serviceId: undefined,
+          name: item.name || product.name,
+          quantity,
+          price,
+          total,
+          itemType: 'product'
+        };
+      } else if (item.serviceId) {
+        // Handle service
+        const service = await Service.findById(item.serviceId);
+        if (!service) {
+          throw httpError(400, `Item ${index + 1}: Invalid service selected.`);
+        }
+
+        itemData = {
+          productId: undefined,
+          serviceId: service._id,
+          name: item.name || service.name,
+          quantity: 1, // Services always have quantity 1
+          price,
+          total,
+          itemType: 'service'
+        };
       }
-
-      const itemData = {
-        serviceId: service._id,
-        name: item.name || service.name,
-        quantity: 1,
-        price,
-        total,
-        itemType: 'service'
-      };
 
       items.push(itemData);
     }
@@ -232,7 +281,11 @@ exports.createBill = async (req, res) => {
     }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     // await notifyProducts(new Set([...updatedProducts.keys()]));
+=======
+    await notifyProducts(new Set([...updatedProducts.keys()]));
+>>>>>>> parent of 8c0ae0e (service-update)
     await bill.populate([
       { path: 'customerId', select: 'name email phone' },
       { path: 'branchId', select: 'name code' }
@@ -249,12 +302,9 @@ exports.createBill = async (req, res) => {
   } catch (err) {
     console.error("Error creating bill:", err); // Log the actual error for debugging
 
-    if (err.statusCode) {
-      return res.status(err.statusCode).json({ message: err.message });
-    }
-
     // Differentiate between validation errors and server errors
     if (err.name === 'ValidationError') {
+<<<<<<< HEAD
 <<<<<<< HEAD
       const messages = Object.values(err.errors).map(e => e.message);
       return res.status(400).json({ message: 'Validation Error', errors: messages });
@@ -263,12 +313,23 @@ exports.createBill = async (req, res) => {
         const messages = Object.values(err.errors).map(e => e.message);
         return res.status(400).json({ message: 'Validation Error', errors: messages }); // Use 'errors' array
 >>>>>>> parent of 07b8ac0 (branch-creation)
+=======
+      // Extract specific error messages from Mongoose ValidationError
+      const messages = Object.values(err.errors).map(e => e.message);
+      return res.status(400).json({ message: 'Validation Error', errors: messages }); // Use 'errors' array
+>>>>>>> parent of 8c0ae0e (service-update)
     }
+    // Mongoose CastError (e.g., invalid ObjectId format)
     if (err.name === 'CastError') {
          return res.status(400).json({ message: 'Invalid data format', error: err.message });
     }
 <<<<<<< HEAD
+<<<<<<< HEAD
     if (err.code === 11000) {
+=======
+    // Handle other potential Mongoose errors (e.g., duplicate key)
+    if (err.code === 11000) { // Duplicate key error
+>>>>>>> parent of 8c0ae0e (service-update)
       const duplicateField = Object.keys(err.keyValue)[0];
       return res.status(400).json({ message: `Duplicate entry`, error: `A bill with this ${duplicateField} already exists.` });
 =======
@@ -297,16 +358,50 @@ exports.updateBill = async (req, res) => {
       throw httpError(400, 'Associated customer no longer exists.');
     }
 
+    const originalItems = existingBill.items.map((item) => ({
+      productId: item.productId,
+      serviceId: item.serviceId,
+      quantity: item.quantity,
+      itemType: item.itemType
+    }));
+
     if (!Array.isArray(payload.items) || payload.items.length === 0) {
       throw httpError(400, 'Bill must contain at least one item.');
     }
+
+    const adjustmentMap = new Map();
+
+    const applyAdjustment = (itemId, delta, itemType) => {
+      const key = `${itemType}:${String(itemId)}`;
+      adjustmentMap.set(key, (adjustmentMap.get(key) || 0) + delta);
+    };
+
+    originalItems.forEach(({ productId, serviceId, quantity, itemType }) => {
+      if (productId && itemType === 'product') {
+        applyAdjustment(productId, quantity, 'product');
+      }
+      // Services don't need stock adjustments
+    });
 
     const items = [];
 
     for (let index = 0; index < payload.items.length; index += 1) {
       const item = payload.items[index];
-      if (!item?.serviceId) {
-        throw httpError(400, `Item ${index + 1}: Service ID is required.`);
+      if (!item?.productId && !item?.serviceId) {
+        throw httpError(400, `Item ${index + 1}: Either Product ID or Service ID is required.`);
+      }
+
+      if (item?.productId && item?.serviceId) {
+        throw httpError(400, `Item ${index + 1}: Cannot specify both Product ID and Service ID.`);
+      }
+
+      let quantity = 1; // Default quantity for services
+      if (item.productId) {
+        // For products, quantity is required
+        quantity = Number(item.quantity) || 0;
+        if (quantity <= 0) {
+          throw httpError(400, `Item ${index + 1}: Quantity must be greater than 0.`);
+        }
       }
 
       const price = roundToTwo(Number(item.price) || 0);
@@ -314,21 +409,61 @@ exports.updateBill = async (req, res) => {
         throw httpError(400, `Item ${index + 1}: Price cannot be negative.`);
       }
 
-      const total = roundToTwo(price);
+      const total = roundToTwo(price * quantity);
 
-      const itemData = {
-        serviceId: item.serviceId,
-        name: item.name,
-        quantity: 1,
-        price,
-        total,
-        itemType: 'service'
-      };
+      if (item.productId) {
+        // Apply negative adjustment for new product quantities
+        applyAdjustment(item.productId, -quantity, 'product');
+      }
+
+      let itemData;
+      if (item.productId) {
+        itemData = {
+          productId: item.productId,
+          serviceId: undefined,
+          name: item.name,
+          quantity,
+          price,
+          total,
+          itemType: 'product'
+        };
+      } else if (item.serviceId) {
+        itemData = {
+          productId: undefined,
+          serviceId: item.serviceId,
+          name: item.name,
+          quantity: 1,
+          price,
+          total,
+          itemType: 'service'
+        };
+      }
 
       items.push(itemData);
     }
 
-    // Services don't need stock adjustments
+    const updatedProducts = new Map();
+    for (const [key, delta] of adjustmentMap.entries()) {
+      if (delta === 0) {
+        continue;
+      }
+
+      const [itemType, itemId] = key.split(':');
+      if (itemType === 'product') {
+        const product = await Product.findById(itemId);
+        if (!product) {
+          throw httpError(400, 'One or more referenced products no longer exist.');
+        }
+        const newQuantity = product.quantity + delta;
+        if (newQuantity < 0) {
+          throw httpError(400, `Insufficient stock for product '${product.name}'. Available: ${product.quantity}`);
+        }
+        product.quantity = newQuantity;
+        await product.save({ validateModifiedOnly: true });
+        updatedProducts.set(itemId, product);
+      }
+      // Services don't need stock adjustments
+    }
 
     const financials = calculateFinancials({
       items,
@@ -368,7 +503,7 @@ exports.updateBill = async (req, res) => {
       { new: true, runValidators: true }
     );
 
-    // await notifyProducts(new Set([...updatedProducts.keys()]));
+    await notifyProducts(new Set([...updatedProducts.keys()]));
 
     res.status(200).json({
       message: 'Bill updated successfully',

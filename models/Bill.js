@@ -2,10 +2,15 @@
 const mongoose = require('mongoose');
 
 const itemSchema = new mongoose.Schema({
+  productId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product',
+    required: false // Made optional to support services
+  },
   serviceId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Service',
-    required: true
+    required: false // Made optional to support products
   },
   name: {
     type: String,
@@ -14,6 +19,7 @@ const itemSchema = new mongoose.Schema({
   quantity: {
     type: Number,
 <<<<<<< HEAD
+<<<<<<< HEAD
     default: 1,
 =======
     required: function() {
@@ -21,6 +27,12 @@ const itemSchema = new mongoose.Schema({
       return this.productId != null;
     },
 >>>>>>> parent of 07b8ac0 (branch-creation)
+=======
+    required: function () {
+      // Quantity only required for products, not services
+      return this.productId != null;
+    },
+>>>>>>> parent of 8c0ae0e (service-update)
     min: 1
   },
   price: {
@@ -34,12 +46,12 @@ const itemSchema = new mongoose.Schema({
   },
   itemType: {
     type: String,
-    enum: ['service'],
-    default: 'service',
+    enum: ['product', 'service'],
     required: true
   }
 });
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 // Since we only support services now, we simplify the pre-validate hook
 itemSchema.pre('validate', function (next) {
@@ -49,6 +61,10 @@ itemSchema.pre('validate', function (next) {
 =======
 // Add validation to ensure either productId or serviceId is present, but not both
 itemSchema.pre('validate', function(next) {
+=======
+// Add validation to ensure either productId or serviceId is present, but not both
+itemSchema.pre('validate', function (next) {
+>>>>>>> parent of 8c0ae0e (service-update)
   if (!this.productId && !this.serviceId) {
     return next(new Error('Either productId or serviceId must be provided'));
   }
@@ -60,7 +76,10 @@ itemSchema.pre('validate', function(next) {
     this.itemType = 'product';
   } else if (this.serviceId) {
     this.itemType = 'service';
+<<<<<<< HEAD
 >>>>>>> parent of 07b8ac0 (branch-creation)
+=======
+>>>>>>> parent of 8c0ae0e (service-update)
   }
   next();
 });
