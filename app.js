@@ -50,10 +50,10 @@ const corsOptions = {
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
-  optionsSuccessStatus: 200, // Some browsers (IE11) choke on 204
 };
 app.use(cors(corsOptions));
 
+<<<<<<< HEAD
 // Handle preflight OPTIONS requests for all routes explicitly
 app.options('*', cors(corsOptions));
 
@@ -64,6 +64,8 @@ app.use((req,res,next) => {
   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
   next();
 })
+=======
+>>>>>>> parent of 5bbe556 (cors)
 
 // Middleware
 app.use(express.json({ limit: '10mb' })); // Increase limit for file uploads
