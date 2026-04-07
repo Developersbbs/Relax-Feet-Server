@@ -1,4 +1,4 @@
-const User = require('../models/User');
+const User = require ('../models/User');
 const jwt = require('jsonwebtoken');
 
 // Register user
@@ -11,8 +11,8 @@ exports.registerUser = async (req, res) => {
     }
 
     // Check for existing user (email or username)
-    const userExists = await User.findOne({
-      $or: [{ email }, { username }]
+    const userExists = await User.findOne({ 
+      $or: [{ email }, { username }] 
     });
     if (userExists) {
       return res.status(400).json({ message: "User already exists" });
@@ -23,7 +23,7 @@ exports.registerUser = async (req, res) => {
     const newUser = new User({ username, email, password, role: userRole });
     await newUser.save();
 
-    res.status(201).json({
+    res.status(201).json({ 
       message: "User registered successfully",
       user: { id: newUser._id, username: newUser.username, email: newUser.email, role: newUser.role }
     });
@@ -48,9 +48,9 @@ exports.loginUser = async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ id: user._id,role:user.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
 
-    // ✅ Store token in httpOnly cookie
+     // ✅ Store token in httpOnly cookie
     res.cookie("token", token, {
       httpOnly: true,   // JS can't access
       secure: process.env.NODE_ENV === "production", // only HTTPS in prod
@@ -110,7 +110,7 @@ exports.getAllUsers = async (req, res) => {
     if (req.user.role !== 'superadmin') {
       return res.status(403).json({ message: 'Forbidden: Only superadmin can access all users' });
     }
-
+    
     const users = await User.find().select('-password');
     res.status(200).json(users);
   } catch (err) {
@@ -124,20 +124,20 @@ exports.deleteUser = async (req, res) => {
     if (req.user.role !== 'superadmin') {
       return res.status(403).json({ message: 'Forbidden: Only superadmin can delete users' });
     }
-
+    
     const { id } = req.params;
-
+    
     // Prevent superadmin from deleting themselves
     if (id === req.user.id) {
       return res.status(400).json({ message: 'Cannot delete your own account' });
     }
-
+    
     const user = await User.findByIdAndDelete(id);
-
+    
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-
+    
     res.status(200).json({ message: 'User deleted successfully' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
