@@ -17,10 +17,22 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+<<<<<<< HEAD
   role:{
    type:String,
    enum:["superadmin", "stockmanager", "billcounter"],
    default:"superadmin",
+=======
+  role: {
+    type: String,
+    enum: ["superadmin", "stockmanager", "billcounter"],
+    default: "superadmin",
+  },
+  branchId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Branch',
+    required: false, // Required for stockmanager and billcounter, enforced in controller/UI
+>>>>>>> parent of c66e1ce (color theme changed)
   },
 });
 
