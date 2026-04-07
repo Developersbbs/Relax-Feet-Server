@@ -11,7 +11,6 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const serviceRoutes = require('./routes/serviceRoutes');
 const branchRoutes = require('./routes/branchRoutes');
-const couponRoutes = require('./routes/couponRoutes');
 const { scheduleNotificationCleanup } = require('./utils/notificationCleanup');
 const cors = require("cors");
 const cookieParser = require('cookie-parser');
@@ -92,7 +91,6 @@ app.use('/api/bills', billRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/branches', branchRoutes);
-app.use('/api/coupons', couponRoutes);
 
 // Root route
 app.get('/', (req, res) => {

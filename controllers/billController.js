@@ -3,7 +3,6 @@ const mongoose = require('mongoose');
 const Bill = require('../models/Bill');
 const Customer = require('../models/Customer');
 const Service = require('../models/Service');
-const Coupon = require('../models/Coupon');
 const Product = null; // Removing Product dependency
 // const { handleStockNotifications } = require('../utils/stockNotifications');
 
@@ -55,62 +54,6 @@ const calculateFinancials = ({ items, discountPercent, taxPercent, paidAmount, p
     subtotal,
     discountPercent: normalizedDiscountPercent,
     discountAmount,
-    taxPercent: normalizedTaxPercent,
-    taxAmount,
-    totalAmount,
-    paidAmount: normalizedPaidAmount,
-    dueAmount,
-    paymentStatus: normalizedPaymentStatus
-  };
-};
-
-const calculateFinancialsWithCoupon = ({ items, discountPercent, taxPercent, paidAmount, paymentStatus, coupon }) => {
-  const subtotal = roundToTwo(items.reduce((sum, item) => sum + roundToTwo(item.total || 0), 0));
-
-  // Apply standard discount first
-  const normalizedDiscountPercent = clamp(Number(discountPercent) || 0, 0, 100);
-  let discountAmount = roundToTwo((subtotal * normalizedDiscountPercent) / 100);
-
-  // Apply coupon discount if provided
-  let couponDiscount = 0;
-  if (coupon) {
-    if (coupon.discountType === 'percentage') {
-      couponDiscount = roundToTwo((subtotal * coupon.discountValue) / 100);
-      if (coupon.maxDiscountAmount && couponDiscount > coupon.maxDiscountAmount) {
-        couponDiscount = coupon.maxDiscountAmount;
-      }
-    } else {
-      couponDiscount = coupon.discountValue;
-    }
-  }
-
-  const totalDiscount = roundToTwo(discountAmount + couponDiscount);
-  const taxableBase = roundToTwo(Math.max(subtotal - totalDiscount, 0));
-  const normalizedTaxPercent = clamp(Number(taxPercent) || 0, 0, 100);
-  const taxAmount = roundToTwo((taxableBase * normalizedTaxPercent) / 100);
-  const totalAmount = roundToTwo(taxableBase + taxAmount);
-
-  let normalizedPaymentStatus = normalizePaymentStatus(paymentStatus);
-  let normalizedPaidAmount = roundToTwo(Number(paidAmount) || 0);
-
-  if (normalizedPaymentStatus === 'paid') {
-    normalizedPaidAmount = totalAmount;
-  }
-
-  if (normalizedPaidAmount > totalAmount) {
-    normalizedPaidAmount = totalAmount;
-  }
-
-  const dueAmount = roundToTwo(Math.max(totalAmount - normalizedPaidAmount, 0));
-  if (normalizedPaymentStatus === 'paid' && dueAmount > 0) {
-    normalizedPaymentStatus = 'partial';
-  }
-
-  return {
-    subtotal,
-    discountPercent: normalizedDiscountPercent,
-    discountAmount: totalDiscount,
-    couponDiscount,
     taxPercent: normalizedTaxPercent,
     taxAmount,
     totalAmount,
@@ -233,27 +176,9 @@ exports.createBill = async (req, res) => {
     }
 
     const items = [];
-    let coupon = null;
-
-    if (payload.couponCode) {
-      coupon = await Coupon.findOne({ code: payload.couponCode.toUpperCase(), isActive: true });
-      if (!coupon) {
-        throw httpError(400, 'Invalid or inactive coupon code.');
-      }
-
-      const now = new Date();
-      if (now < coupon.startDate || now > coupon.endDate) {
-        throw httpError(400, 'Coupon is not valid at this time.');
-      }
-
-      if (coupon.usageLimit > 0 && coupon.usedCount >= coupon.usageLimit) {
-        throw httpError(400, 'Coupon usage limit has been reached.');
-      }
-    }
 
     for (let index = 0; index < payload.items.length; index += 1) {
       const item = payload.items[index];
-      // ... existing item processing logic ...
       if (!item?.serviceId) {
         throw httpError(400, `Item ${index + 1}: Service ID is required.`);
       }
@@ -282,17 +207,12 @@ exports.createBill = async (req, res) => {
       items.push(itemData);
     }
 
-    if (coupon && items.reduce((sum, it) => sum + it.total, 0) < coupon.minBillAmount) {
-      throw httpError(400, `Minimum bill amount for this coupon is ₹${coupon.minBillAmount}`);
-    }
-
-    const financials = calculateFinancialsWithCoupon({
+    const financials = calculateFinancials({
       items,
       discountPercent: payload.discountPercent,
       taxPercent: payload.taxPercent,
       paidAmount: payload.paidAmount,
-      paymentStatus: payload.paymentStatus,
-      coupon
+      paymentStatus: payload.paymentStatus
     });
 
     const bill = new Bill({
@@ -305,8 +225,6 @@ exports.createBill = async (req, res) => {
       ...financials,
       taxAmount: financials.taxAmount,
       discount: financials.discountAmount,
-      couponCode: coupon ? coupon.code : undefined,
-      couponDiscount: financials.couponDiscount,
       paymentMethod: normalizePaymentMethod(payload.paymentMethod),
       paymentStatus: financials.paymentStatus,
       billDate: parseOptionalDate(payload.billDate, new Date()),
@@ -316,10 +234,6 @@ exports.createBill = async (req, res) => {
     });
 
     await bill.save();
-
-    if (coupon) {
-      await Coupon.findByIdAndUpdate(coupon._id, { $inc: { usedCount: 1 } });
-    }
 
     if (bill.paymentMethod === 'credit' || bill.paymentStatus !== 'paid') {
       await Customer.findByIdAndUpdate(
