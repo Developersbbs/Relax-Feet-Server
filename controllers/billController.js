@@ -102,7 +102,7 @@ exports.getAllBills = async (req, res) => {
 
     const bills = await Bill.find(filter)
       .populate('customerId', 'name email phone')
-      .populate('branchId', 'name code address contactNumber gstNumber email website bankDetails')
+      .populate('branchId', 'name code')
       .limit(limit * 1)
       .skip((page - 1) * limit)
       .sort({ createdAt: -1 });
@@ -125,7 +125,7 @@ exports.getBillById = async (req, res) => {
   try {
     const bill = await Bill.findById(req.params.id)
       .populate('customerId')
-      .populate('branchId', 'name code address contactNumber gstNumber email website bankDetails');
+      .populate('branchId', 'name code');
     if (!bill) {
       return res.status(404).json({ message: 'Bill not found' });
     }
@@ -147,19 +147,20 @@ exports.createBill = async (req, res) => {
     payload.createdBy = req.user._id;
 
     // Determine branchId: UI provided for superadmin, or from req.user
+    // Determine branchId: UI provided for superadmin, or from req.user
     let branchId = req.user.role === 'superadmin' && payload.branchId ? payload.branchId : req.user.branchId;
 
-    if (!branchId) {
-      // Fallback: try active branch first, then any branch
+    if (!branchId && req.user.role === 'superadmin') {
+      // Fallback for superadmin: use the first available branch if none provided
       const Branch = mongoose.model('Branch');
-      const firstBranch = await Branch.findOne({ isActive: true }) || await Branch.findOne({});
+      const firstBranch = await Branch.findOne({ isActive: true });
       if (firstBranch) {
         branchId = firstBranch._id;
       }
     }
 
     if (!branchId) {
-      throw httpError(400, 'No active branch found. Please create a branch before creating a bill.');
+      throw httpError(400, 'Branch ID is required to create a bill. Please assign a branch to this user or select one.');
     }
 
     if (!payload.customerId) {
@@ -219,7 +220,7 @@ exports.createBill = async (req, res) => {
       branchId,
       customerId: customer._id,
       customerName: customer.name,
-      customerEmail: customer.email || '',
+      customerEmail: customer.email,
       customerPhone: customer.phone || '',
       items,
       ...financials,
@@ -246,7 +247,7 @@ exports.createBill = async (req, res) => {
     // await notifyProducts(new Set([...updatedProducts.keys()]));
     await bill.populate([
       { path: 'customerId', select: 'name email phone' },
-      { path: 'branchId', select: 'name code address contactNumber gstNumber email website bankDetails' }
+      { path: 'branchId', select: 'name code' }
     ]);
 
     res.status(201).json({
@@ -354,8 +355,7 @@ exports.updateBill = async (req, res) => {
         notes: payload.notes ?? existingBill.notes
       },
       { new: true, runValidators: true }
-    ).populate('customerId', 'name email phone')
-      .populate('branchId', 'name code address contactNumber gstNumber email website bankDetails');
+    ).populate('customerId', 'name email phone');
 
     await Customer.findByIdAndUpdate(
       customer._id,

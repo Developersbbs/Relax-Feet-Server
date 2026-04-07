@@ -82,8 +82,8 @@ exports.updateUser = async (req, res) => {
     }
 
     // Validate role if provided
-    if (updates.role && !['branchadmin', 'branchmanager', 'stockmanager', 'billcounter'].includes(updates.role)) {
-      return res.status(400).json({ message: "Invalid role. Must be one of: branchadmin, branchmanager, stockmanager, or billcounter" });
+    if (updates.role && !['stockmanager', 'billcounter'].includes(updates.role)) {
+      return res.status(400).json({ message: "Invalid role. Must be stockmanager or billcounter" });
     }
 
     const user = await User.findByIdAndUpdate(

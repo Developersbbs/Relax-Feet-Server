@@ -32,7 +32,7 @@ exports.getBranchById = async (req, res) => {
 // @access  Private/SuperAdmin
 exports.createBranch = async (req, res) => {
     try {
-        const { name, code, address, contactNumber, isActive, gstNumber, email, website, bankDetails } = req.body;
+        const { name, code, address, contactNumber, isActive } = req.body;
 
         const existingBranch = await Branch.findOne({ code });
         if (existingBranch) {
@@ -45,10 +45,6 @@ exports.createBranch = async (req, res) => {
             address,
             contactNumber,
             isActive,
-            gstNumber,
-            email,
-            website,
-            bankDetails
         });
 
         res.status(201).json(branch);
@@ -62,7 +58,7 @@ exports.createBranch = async (req, res) => {
 // @access  Private/SuperAdmin
 exports.updateBranch = async (req, res) => {
     try {
-        const { name, code, address, contactNumber, isActive, gstNumber, email, website, bankDetails } = req.body;
+        const { name, code, address, contactNumber, isActive } = req.body;
 
         // Check if branch code exists in ANOTHER branch
         if (code) {
@@ -74,7 +70,7 @@ exports.updateBranch = async (req, res) => {
 
         const branch = await Branch.findByIdAndUpdate(
             req.params.id,
-            { name, code, address, contactNumber, isActive, gstNumber, email, website, bankDetails },
+            { name, code, address, contactNumber, isActive },
             { new: true, runValidators: true }
         );
 
