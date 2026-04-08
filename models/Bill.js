@@ -18,21 +18,10 @@ const itemSchema = new mongoose.Schema({
   },
   quantity: {
     type: Number,
-<<<<<<< HEAD
-<<<<<<< HEAD
-    default: 1,
-=======
-    required: function() {
-      // Quantity only required for products, not services
-      return this.productId != null;
-    },
->>>>>>> parent of 07b8ac0 (branch-creation)
-=======
     required: function () {
       // Quantity only required for products, not services
       return this.productId != null;
     },
->>>>>>> parent of 8c0ae0e (service-update)
     min: 1
   },
   price: {
@@ -51,20 +40,8 @@ const itemSchema = new mongoose.Schema({
   }
 });
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-// Since we only support services now, we simplify the pre-validate hook
-itemSchema.pre('validate', function (next) {
-  this.itemType = 'service';
-  if (this.serviceId) {
-    this.quantity = 1; // Enforce quantity 1 for services
-=======
-// Add validation to ensure either productId or serviceId is present, but not both
-itemSchema.pre('validate', function(next) {
-=======
 // Add validation to ensure either productId or serviceId is present, but not both
 itemSchema.pre('validate', function (next) {
->>>>>>> parent of 8c0ae0e (service-update)
   if (!this.productId && !this.serviceId) {
     return next(new Error('Either productId or serviceId must be provided'));
   }
@@ -76,10 +53,7 @@ itemSchema.pre('validate', function (next) {
     this.itemType = 'product';
   } else if (this.serviceId) {
     this.itemType = 'service';
-<<<<<<< HEAD
->>>>>>> parent of 07b8ac0 (branch-creation)
-=======
->>>>>>> parent of 8c0ae0e (service-update)
+    this.quantity = 1; // Enforce quantity 1 for services
   }
   next();
 });

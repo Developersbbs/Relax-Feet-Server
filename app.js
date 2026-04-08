@@ -23,12 +23,7 @@ connectDB();
 require('./config/firebaseAdmin'); 
 
 // CORS config
-<<<<<<< HEAD
-<<<<<<< HEAD
-const envOrigins = process.env.ALLOWED_ORIGINS
-=======
 const allowedOrigins = process.env.ALLOWED_ORIGINS
->>>>>>> parent of 633f15f (cors)
   ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
   : ["https://app.relaxfeet.in", "http://localhost:5173", "http://localhost:5174", "http://localhost:5000", "http://127.0.0.1:5173"];
 
@@ -43,29 +38,16 @@ const corsOptions = {
       callback(new Error('Not allowed by CORS'));
     }
   },
-=======
-const corsOptions = {
-  origin:  "https://app.relaxfeet.in",
->>>>>>> parent of 07b8ac0 (branch-creation)
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
 };
 app.use(cors(corsOptions));
 
-<<<<<<< HEAD
 // Handle preflight OPTIONS requests for all routes explicitly
 app.options('*', cors(corsOptions));
 
-app.use((req,res,next) => {
-  res.header("Access-Control-Allow-Origin", "https://app.relaxfeet.in");
-  res.header("Access-Control-Allow-Credentials", true);
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  next();
-})
-=======
->>>>>>> parent of 5bbe556 (cors)
+
 
 // Middleware
 app.use(express.json({ limit: '10mb' })); // Increase limit for file uploads

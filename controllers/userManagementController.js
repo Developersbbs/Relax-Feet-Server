@@ -4,17 +4,9 @@ const bcrypt = require('bcryptjs');
 // Get all users (except superadmin)
 exports.getAllUsers = async (req, res) => {
   try {
-<<<<<<< HEAD
     const users = await User.find({ 
       role: { $in: ['stockmanager', 'billcounter'] } 
     }).select('-password');
-    
-=======
-    const users = await User.find({
-      role: { $in: ['stockmanager', 'billcounter'] }
-    }).select('-password').populate('branchId', 'name code');
-
->>>>>>> parent of c66e1ce (color theme changed)
     res.status(200).json(users);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });

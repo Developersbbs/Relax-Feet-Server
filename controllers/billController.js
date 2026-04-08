@@ -145,18 +145,7 @@ exports.createBill = async (req, res) => {
     const payload = { ...req.body };
     payload.createdBy = req.user._id;
 
-<<<<<<< HEAD
-    // Determine branchId: UI provided for superadmin, or from req.user
-    if (req.user.role !== 'superadmin' && !req.user.branchId) {
-      throw httpError(403, 'User is not assigned to a branch');
-    }
-    const branchId = req.user.role === 'superadmin' && payload.branchId ? payload.branchId : req.user.branchId;
-    if (!branchId) {
-      throw httpError(400, 'Branch ID is required to create a bill');
-    }
 
-=======
->>>>>>> parent of 07b8ac0 (branch-creation)
     if (!payload.customerId) {
       throw httpError(400, 'Customer ID is required.');
     }
@@ -280,20 +269,8 @@ exports.createBill = async (req, res) => {
       );
     }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-    // await notifyProducts(new Set([...updatedProducts.keys()]));
-=======
-    await notifyProducts(new Set([...updatedProducts.keys()]));
->>>>>>> parent of 8c0ae0e (service-update)
-    await bill.populate([
-      { path: 'customerId', select: 'name email phone' },
-      { path: 'branchId', select: 'name code' }
-    ]);
-=======
     await notifyProducts(new Set([...updatedProducts.keys()]));
     await bill.populate('customerId', 'name email phone');
->>>>>>> parent of 07b8ac0 (branch-creation)
 
     res.status(201).json({
       message: 'Bill created successfully',
@@ -304,40 +281,16 @@ exports.createBill = async (req, res) => {
 
     // Differentiate between validation errors and server errors
     if (err.name === 'ValidationError') {
-<<<<<<< HEAD
-<<<<<<< HEAD
       const messages = Object.values(err.errors).map(e => e.message);
       return res.status(400).json({ message: 'Validation Error', errors: messages });
-=======
-        // Extract specific error messages from Mongoose ValidationError
-        const messages = Object.values(err.errors).map(e => e.message);
-        return res.status(400).json({ message: 'Validation Error', errors: messages }); // Use 'errors' array
->>>>>>> parent of 07b8ac0 (branch-creation)
-=======
-      // Extract specific error messages from Mongoose ValidationError
-      const messages = Object.values(err.errors).map(e => e.message);
-      return res.status(400).json({ message: 'Validation Error', errors: messages }); // Use 'errors' array
->>>>>>> parent of 8c0ae0e (service-update)
     }
     // Mongoose CastError (e.g., invalid ObjectId format)
     if (err.name === 'CastError') {
          return res.status(400).json({ message: 'Invalid data format', error: err.message });
     }
-<<<<<<< HEAD
-<<<<<<< HEAD
     if (err.code === 11000) {
-=======
-    // Handle other potential Mongoose errors (e.g., duplicate key)
-    if (err.code === 11000) { // Duplicate key error
->>>>>>> parent of 8c0ae0e (service-update)
       const duplicateField = Object.keys(err.keyValue)[0];
       return res.status(400).json({ message: `Duplicate entry`, error: `A bill with this ${duplicateField} already exists.` });
-=======
-    // Handle other potential Mongoose errors (e.g., duplicate key)
-    if (err.code === 11000) { // Duplicate key error
-         const duplicateField = Object.keys(err.keyValue)[0];
-         return res.status(400).json({ message: `Duplicate entry`, error: `A bill with this ${duplicateField} already exists.` });
->>>>>>> parent of 07b8ac0 (branch-creation)
     }
 
     res.status(500).json({ message: 'Server error during bill creation', error: err.message });
